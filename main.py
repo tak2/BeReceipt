@@ -2,11 +2,15 @@
 import os
 import csv
 import re
+import cv2
+import numpy as np
+from scipy.ndimage import interpolation as inter
+
 
 def start():
     #file input
     global inputdirectory
-    inputdirectory ="./input"        #input directory
+    inputdirectory =".\input"        #input directory
     #Initialazie the data dict and array
     global reciptdata
     reciptdata = {
@@ -73,31 +77,78 @@ def start():
     pass
 
 def main():
-    #initializantion and global variables 
+    #-------------initializantion and global variables 
     start()
-    #loopthrough the input folder 
-
-    #read image 
-
-    #OCR preprossessing
+    #---------loopthrough the input folder 
+    for file in getinputfiles():
+        #print(file)
+        #-----------read image
+        img = fileread(file) 
+        #---------OCR preprossessing deskew then prepair
+        #deskew(img)
+        #showimg(deskew(img))
+        imgdeskew = deskew(img)
+        imgafter = ocrpre(imgdeskew)
+        #showimg(imgafter)     
+        #------------OCR output as text
     
-    #OCR output as text
+    #--------------Get store
     
-    #Get store
-    
-#    print(getstore(recipttext))
-    store = getstore(recipttext)
+    #print(getstore(recipttext))
+    #store = getstore(recipttext)
     #print(store)
-    #Based on store use add data
-    getdata(store ,recipttext)
+    #-----------------Based on store use add data
+    #getdata(store ,recipttext)
 
-    print (reciptdata)
-    print(itemlist)
+    #print (reciptdata)
+    #print(itemlist)
     pass
 
+def deskew(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.bitwise_not(gray)
+    thresh = cv2.threshold(gray, 0, 255,	cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    coords = np.column_stack(np.where(thresh > 0))
+    angle = cv2.minAreaRect(coords)[-1]
+    print(angle)
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+    (h, w) = img.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    #print("[INFO] angle: {:.3f}".format(angle))
+    return rotated
 
-def ocrpre():
-    pass
+def fileread(file):
+    img = cv2.imread(file)
+    return img
+
+def showimg(img):
+    cv2.imshow('sample image',img)
+    cv2.waitKey(0) # waits until a key is pressed
+    cv2.destroyAllWindows() # destroys the window showing image
+    return
+
+def getinputfiles():
+    inputfilesarry = []
+    for filename in os.listdir(inputdirectory):
+        if filename.endswith(".jpg") : 
+            #print(os.path.join(inputdirectory, filename))
+            inputfilesarry.append(os.path.join(inputdirectory, filename))
+            continue
+        else:
+            continue
+
+    return inputfilesarry
+
+def ocrpre(img):
+    img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    th = cv2.adaptiveThreshold(img_grey, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,9,10)
+    imgpre = th
+    return imgpre
 
 def getstore(recipttext): # input img gets the store name or retern genraic based on placelist.csv 
     with open('./setting/stores.csv') as csv_file:
