@@ -6,7 +6,7 @@ import re
 def start():
     #file input
     global inputdirectory
-    inputdirectory ="./output"        #input directory
+    inputdirectory ="./input"        #input directory
     #Initialazie the data dict and array
     global reciptdata
     reciptdata = {
@@ -75,6 +75,10 @@ def start():
 def main():
     #initializantion and global variables 
     start()
+    #loopthrough the input folder 
+
+    #read image 
+
     #OCR preprossessing
     
     #OCR output as text
@@ -115,12 +119,45 @@ def getdata(store ,recipttext): #gets the data from recipt
         reciptdata.update({"Time": time})
     except :
         pass
-    if   store == storearry [0]:
+    if   store in ( storearry [0] , storearry [1] ): #kaufland
+        kaufland(recipttext)
         pass
-    elif store == storearry [1]:
+    elif store in storearry [2]: #lidl
+        pass
+    elif store in storearry [3]: #rewe
+        pass
+    elif store in storearry [4]: #edeka
         pass
     else:
         pass    
+    pass
+
+def kaufland(recipttext):
+    reciptbody = False
+    #price_pattern = r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])'
+    for count,line in enumerate(recipttext.splitlines()):
+        #print (line)
+        if reciptbody :
+            #print ("body",line)
+            if (re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line)) and (not('kg' in line) and not('kg' in recipttext.splitlines()[count -1 ]) )   :
+                #print([recipttext.splitlines()[count -1 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
+                #print ("price an d not kg ",line)
+                itemlist.append([recipttext.splitlines()[count -1 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
+                pass
+            #print (line)
+            elif (re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line)) and not('kg' in line):
+                #print([recipttext.splitlines()[count -2 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
+                #print ("dddd",line)
+                itemlist.append([recipttext.splitlines()[count -2 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
+                pass
+        if "Preis" in line :
+            reciptbody = True
+        elif "Summe" in line :
+            reciptdata.update({"Total": re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',recipttext.splitlines()[count +1 ]).group()})
+            reciptbody = False
+    reciptdata.update({"ItemCount": len(itemlist)})
+            
+
     pass
 
 if __name__ == '__main__':
