@@ -5,12 +5,18 @@ import re
 import cv2
 import numpy as np
 from scipy.ndimage import interpolation as inter
+import pytesseract
+from pytesseract import Output
+import Levenshtein
+import codecs
 
 
 def start():
     #file input
     global inputdirectory
+    global outputdirectory
     inputdirectory =".\input"        #input directory
+    outputdirectory =".\output"        #output directory
     #Initialazie the data dict and array
     global reciptdata
     reciptdata = {
@@ -20,7 +26,7 @@ def start():
             "Total": "",
             "ItemCount": ""
             }
-
+    pytesseract.pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract.exe'  # Path to tesseract
     global itemlist 
     itemlist =[]
     global recipttext
@@ -79,18 +85,30 @@ def start():
 def main():
     #-------------initializantion and global variables 
     start()
-    #---------loopthrough the input folder 
+    #---------loopthrough the input folder <inputdirectory>
     for file in getinputfiles():
-        #print(file)
+        print(file)
+        #print(cleanfile)
         #-----------read image
         img = fileread(file) 
         #---------OCR preprossessing deskew then prepair
-        #deskew(img)
-        #showimg(deskew(img))
+        showimg(deskew(img))
         imgdeskew = deskew(img)
         imgafter = ocrpre(imgdeskew)
-        #showimg(imgafter)     
+        showimg(imgafter)     
         #------------OCR output as text
+        #print(OCR(imgafter))
+        recipttext = OCR(imgafter)
+        #print(recipttext)
+        store = getstore(recipttext)
+        #print(store)
+        getdata(store ,recipttext)
+        print(reciptdata)
+        print(itemlist)
+        #text_file = open( file + "depre.txt", "w")
+        #print(recipttext)
+        #text_file.write(recipttext)
+        #text_file.close()
     
     #--------------Get store
     
@@ -104,13 +122,23 @@ def main():
     #print(itemlist)
     pass
 
+def cmprfiles(text1 , text2):
+    #print (Levenshtein.distance(text1,text2))
+    diff = Levenshtein.distance(text1,text2)
+    return diff
+
+def OCR(img):
+    pytesseract.pytesseract.tesseract_cmd = 'C:/Program Files/Tesseract-OCR/tesseract.exe'  # Path to tesseract
+    recipttext = pytesseract.image_to_string(img, config='-l deu --psm 11')
+    return recipttext
+
 def deskew(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.bitwise_not(gray)
     thresh = cv2.threshold(gray, 0, 255,	cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     coords = np.column_stack(np.where(thresh > 0))
     angle = cv2.minAreaRect(coords)[-1]
-    print(angle)
+    #print(angle)
     if angle < -45:
         angle = -(90 + angle)
     else:
@@ -144,9 +172,10 @@ def getinputfiles():
 
     return inputfilesarry
 
-def ocrpre(img):
+def ocrpre(img,x,y):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    th = cv2.adaptiveThreshold(img_grey, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,9,10)
+    #best was 9,10
+    th = cv2.adaptiveThreshold(img_grey, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,x,y)
     imgpre = th
     return imgpre
 
@@ -160,6 +189,7 @@ def getstore(recipttext): # input img gets the store name or retern genraic base
     return "gen"
 
 def getdata(store ,recipttext): #gets the data from recipt 
+    reciptdata.clear()
     try:
         reciptdata.update({"Store": store})
         date_pattern = r'(0[1-9]|[12][0-9]|3[01])[.](0[1-9]|1[012])[.](19|20)'
@@ -190,26 +220,38 @@ def kaufland(recipttext):
         #print (line)
         if reciptbody :
             #print ("body",line)
-            if (re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line)) and (not('kg' in line) and not('kg' in recipttext.splitlines()[count -1 ]) )   :
+            if (re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line)) and (not('kg' in line) and not('kg' in recipttext.splitlines()[count -2 ]) )   :
                 #print([recipttext.splitlines()[count -1 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
                 #print ("price an d not kg ",line)
-                itemlist.append([recipttext.splitlines()[count -1 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
+                itemlist.append([recipttext.splitlines()[count -2 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
                 pass
             #print (line)
             elif (re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line)) and not('kg' in line):
                 #print([recipttext.splitlines()[count -2 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
                 #print ("dddd",line)
-                itemlist.append([recipttext.splitlines()[count -2 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
+                itemlist.append([recipttext.splitlines()[count -4 ] , re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',line).group()])
                 pass
         if "Preis" in line :
             reciptbody = True
         elif "Summe" in line :
-            reciptdata.update({"Total": re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',recipttext.splitlines()[count +1 ]).group()})
+            try:
+                reciptdata.update({"Total": re.search(r'([0-9][0-9]|[0-9])([,]|[.])([0-9][0-9]|[0-9])',recipttext.splitlines()[count +1 ]).group()})
+            except:
+                pass
             reciptbody = False
     reciptdata.update({"ItemCount": len(itemlist)})
             
 
     pass
+
+def fileoutput(file, recipttext ):
+    cleanfile = os.path.splitext(os.path.basename(file))[0] # get file name without extention
+    fileout = (outputdirectory + "\\"+ cleanfile  +".txt")
+    #, mode='a', encoding='utf8'
+    #text_file = open( fileout + "depre.txt", "w")
+    text_file = open( fileout , mode='a', encoding='utf8')
+    text_file.write(recipttext)
+    text_file.close()
 
 if __name__ == '__main__':
     main()
